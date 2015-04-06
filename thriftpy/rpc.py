@@ -37,10 +37,14 @@ def make_client(service, host="localhost", port=9090, unix_socket=None,
 def make_server(service, handler,
                 host="localhost", port=9090, unix_socket=None,
                 proto_factory=TBinaryProtocolFactory(),
-                trans_factory=TBufferedTransportFactory()):
+                trans_factory=TBufferedTransportFactory(),
+                fd=None):
     processor = TProcessor(service, handler)
     if unix_socket:
         server_socket = TServerSocket(unix_socket=unix_socket)
+    elif fd:
+        import socket
+        server_socket = TServerSocket(fd=fd, socket_family=socket.AF_INET)
     elif host and port:
         server_socket = TServerSocket(host=host, port=port)
     else:

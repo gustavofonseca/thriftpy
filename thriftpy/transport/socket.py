@@ -116,12 +116,20 @@ class TServerSocket(TSocketBase):
     """Socket implementation of TServerTransport base."""
 
     def __init__(self, host=None, port=9090, unix_socket=None,
-                 socket_family=socket.AF_UNSPEC):
+                 socket_family=socket.AF_UNSPEC,
+                 fd=None):
         self.host = host
         self.port = port
         self._unix_socket = unix_socket
         self._socket_family = socket_family
+        self._fd = fd
         self.handle = None
+
+    def _resolveAddr(self):
+        if self._fd is not None:
+            return [(self._socket_family, socket.SOCK_STREAM, None, None, None)]
+        else:
+            return super(TServerSocket, self)._resolveAddr()
 
     def listen(self):
         res0 = self._resolveAddr()
@@ -142,12 +150,17 @@ class TServerSocket(TSocketBase):
                 if eno == errno.ECONNREFUSED:
                     os.unlink(res[4])
 
-        self.handle = socket.socket(res[0], res[1])
-        self.handle.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if hasattr(self.handle, 'settimeout'):
-            self.handle.settimeout(None)
-        self.handle.bind(res[4])
-        self.handle.listen(128)
+        if self._fd:
+            self.handle = socket.fromfd(self._fd, res[0], res[1])
+            self.handle.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.handle.setblocking(1)
+        else:
+            self.handle = socket.socket(res[0], res[1])
+            self.handle.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(self.handle, 'settimeout'):
+                self.handle.settimeout(None)
+            self.handle.bind(res[4])
+            self.handle.listen(128)
 
     def accept(self):
         client, addr = self.handle.accept()
